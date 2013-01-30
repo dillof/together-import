@@ -1,4 +1,4 @@
 together-import
 ===============
 
-script to import files into Together
+This script allows to import files into [Together](http://reinventedsoftware.com/together/), a place for all your digital stuff.  Metadata can be set via command line options.
