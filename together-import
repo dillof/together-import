@@ -1,0 +1,189 @@
+#!/usr/bin/env perl
+
+# Copyright 2012 Dieter Baron
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. The names of the authors may not be used to endorse or promote
+#    products derived from this software without specific prior
+#    written permission.
+#  
+# THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
+# OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+# IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+use strict;
+
+use Getopt::Long;
+use Pod::Usage;
+use Cwd;
+
+my $VERSION = '1.0';
+
+my $as_copy;
+my $as_link;
+my $as_move;
+my $group;
+my $rating;
+my $comments;
+my $label;
+my $tags;
+my $help;
+my $man;
+my $version;
+
+my $result = GetOptions('help|h' => \$help,
+			'man' => \$man,
+			'version|V' => \$version,
+			'copy|k' => \$as_copy,
+			'link|l' => \$as_link,
+			'move|m' => \$as_move,
+			'group|g=s' => \$group,
+			'rating|r=s' => \$rating,
+			'comments|c=s' => \$comments,
+			'label|L=s' => \$label,
+			'tags|t=s' => \$tags)
+	 or pod2usage(2);
+pod2usage(1) if ($help);
+pod2usage(-exitstatus => 0, -verbose => 2) if ($man);
+if ($version) {
+	print "together-import $VERSION\n";
+	exit(0);
+}
+
+pod2usage(2) if (scalar(@ARGV) == 0);
+
+my $setup = '';
+my $extra = '';
+
+my $modes = 0;
+if ($as_copy) {
+	$extra = " by copying";
+	$modes++;
+}
+if ($as_link) {
+	$extra = " by linking";
+	$modes++;
+}
+if ($as_move) {
+	$extra = " by moving";
+	$modes++;
+}
+if ($modes > 1) {
+	die "only one mode";
+}
+if ($group) {
+	$setup .= "\tset matchingFolders to every group whose name is \"$group\"\n";
+	$setup .= "\tset grp to item 1 of matchingFolders\n";
+	$extra .= " to grp";
+}
+if ($rating) {
+	$extra .= " with rating $rating";
+}
+if ($comments) {
+	$extra .= " with comments \"$comments\"";
+}
+if ($label) {
+	$setup .= "\tset matchingLabels to every group whose name is \"$label\"\n";
+	$setup .= "\tset lbl to item 1 of matchingLabels\n";
+	$extra .= " with label lbl";
+}
+if ($tags) {
+	$extra .= " with tags \"$tags\"";
+}
+
+my $pwd = cwd();
+my $i = 0;
+my $files = '';
+for my $file (@ARGV) {
+	if ($i > 0) {
+		$files .= ', ';
+	}
+	if ($file !~ m,^/,) {
+		$file="$pwd/$file";
+	}
+	
+	$files .= "\"$file\"";
+	$i++;
+}
+
+if ($i > 1) {
+	$files = "{$files}";
+}
+
+open AS, "|osascript > /dev/null" or die "can't run osascript: $!";
+
+print AS <<EOF;
+tell application "Together"
+$setup
+	import files $files$extra
+end tell
+EOF
+
+close AS;
+
+__END__
+
+=head1 NAME
+
+together-import - import files into Together
+
+=head1 SYNOPSIS
+
+together-import [--copy | --move | --link] [--comments COMMENTS]  [--group GROUP] [--label LABEL] [--rating RATING] [--tags TAGS] file [...]
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-comments> I<comments>
+
+Set comments on file to I<comments>.
+
+=item B<-copy>
+
+Copy files into Together, keeping the original files.
+
+=item B<-group> I<group>
+
+Add files into group I<group>.
+
+=item B<-label> I<label>
+
+Set files' label to I<label>.
+
+=item B<-link>
+
+Import a link to the original files into Together.
+
+=item B<-move>
+
+Move files into Together, deleting the original files after import.
+
+=item B<-rating> I<rating>
+
+Set files' rating to I<rating>.
+
+=item B<-tags> I<tags>
+
+Add tags I<tags> to files.  Separate multiple tags by comma (,).
+
+=back
+
+=head1 DESCRIPTION
+
+Imports files into Together with supplied metadata.
+
+=cut
+
